@@ -7,27 +7,100 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
+
+	"github.com/satori/uuid"
 
 	"github.com/gin-gonic/gin"
 )
 
+type Venue struct {
+	Name     string `json:"name"`
+	Location string `json:"location"`
+}
+
+type Event struct {
+	Id          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Venue       Venue     `json:"venue"`
+	Description string    `json:"description"`
+	Date        string    `json:"date"`
+}
+
+var EventList []Event
+
 func listEvents(c *gin.Context) {
-	// TODO: implement event listing
-	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-		"message": "unimplemented",
+	EventList = append(EventList, Event{
+		Id:   uuid.Must(uuid.FromString("b44ac834-be8c-4457-bd71-72bc98ebfa4d")),
+		Name: "ANDREA BOCELLI 2022",
+		Venue: Venue{
+			Name:     "Papp László Budapest Sportaréna",
+			Location: "1143 Budapest, Stefánia út 2.",
+		},
+		Description: "Napjaink egyik legnépszerűbb tenorja, Andrea Bocelli 2022. október 15-én a Papp László Budapest Sportarénában ad koncertet!",
+		Date:        "2022-10-15T18:00:00Z",
 	})
+
+	EventList = append(EventList, Event{
+		Id:   uuid.Must(uuid.FromString("38896b7c-e221-43a1-977a-f01f7239f66b")),
+		Name: "JAMES BLUNT THE STARS BENEATH MY FEET TOUR",
+		Venue: Venue{
+			Name:     "VeszprémFest, Veszprém Aréna",
+			Location: "8200 Veszprém, Külső-kádártai u. 5.",
+		},
+		Description: "A VeszprémFest zárónapján a brit szupersztár, JAMES BLUNT ad koncertet. Az énekes 2022 februárjában induló, The Stars Beneath My Feet című Európa turnéjának keretében lép fel Veszprémben.",
+		Date:        "2022-07-16T20:00:00Z",
+	})
+	c.AbortWithStatusJSON(http.StatusOK, EventList)
 }
 
 func saveEvent(c *gin.Context) {
-	// TODO: implement saving and error handling
-	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-		"message": "unimplemented",
-	})
+	//Create new event and errors variables
+	var newEvent Event
+	var errors []string
+
+	//Binding payload to variable
+	if err := c.ShouldBindJSON(&newEvent); err != nil {
+		//Invalid payload error handling
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "[Invalid payload!]"})
+	}
+	//Validation of payload
+	if len(newEvent.Name) < 10 {
+		errors = append(errors, "Name is too short, min. 10 characters!")
+	}
+	if len(newEvent.Description) < 30 {
+		errors = append(errors, "Description is too short, min. 30 characters!")
+	}
+	if len(newEvent.Venue.Name) == 0 {
+		errors = append(errors, "Venue name is empty")
+	}
+	if len(newEvent.Venue.Location) == 0 {
+		errors = append(errors, "Venue location name is empty")
+	}
+	valid, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", newEvent.Date)
+	if !valid {
+		errors = append(errors, "Date is invalid")
+	}
+	//Check for validation errors
+	if len(errors) > 0 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": errors})
+	} else {
+		c.AbortWithStatusJSON(http.StatusCreated, newEvent)
+	}
+	//Generating UUID for the event
+	uid := uuid.NewV4()
+	newEvent.Id = uid
+	//Add event to eventlist
+	EventList = append(EventList, newEvent)
 }
 
 func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 	router := gin.Default()
 
 	// Creating /api route prefix group
@@ -41,7 +114,7 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + port,
 		Handler: router,
 	}
 
