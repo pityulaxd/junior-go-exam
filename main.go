@@ -54,8 +54,6 @@ func listEvents(c *gin.Context) {
 		Date:        "2022-07-16T20:00:00Z",
 	})
 	c.AbortWithStatusJSON(http.StatusOK, EventList)
-
-	//c.JSON(http.StatusOK, EventList)
 }
 
 func saveEvent(c *gin.Context) {
